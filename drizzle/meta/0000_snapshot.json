@@ -1,0 +1,285 @@
+{
+  "id": "5fb7aba6-0178-4188-a4a8-fedd65de96cf",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.actions": {
+      "name": "actions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "checkin_id": {
+          "name": "checkin_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_text": {
+          "name": "action_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignee": {
+          "name": "assignee",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "actions_checkin_id_checkins_id_fk": {
+          "name": "actions_checkin_id_checkins_id_fk",
+          "tableFrom": "actions",
+          "tableTo": "checkins",
+          "columnsFrom": [
+            "checkin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "actions_checkin_id_unique": {
+          "name": "actions_checkin_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "checkin_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "actions_text_length": {
+          "name": "actions_text_length",
+          "value": "char_length(\"actions\".\"action_text\") between 1 and 500"
+        },
+        "actions_assignee_length": {
+          "name": "actions_assignee_length",
+          "value": "char_length(\"actions\".\"assignee\") between 1 and 100"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.checkins": {
+      "name": "checkins",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "q_clear": {
+          "name": "q_clear",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "q_equipped": {
+          "name": "q_equipped",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "q_support": {
+          "name": "q_support",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "q_mood": {
+          "name": "q_mood",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "checkins_employee_id_employees_id_fk": {
+          "name": "checkins_employee_id_employees_id_fk",
+          "tableFrom": "checkins",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "checkins_employee_day_unique": {
+          "name": "checkins_employee_day_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "employee_id",
+            "day"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "checkins_day_check": {
+          "name": "checkins_day_check",
+          "value": "\"checkins\".\"day\" in (1, 7)"
+        },
+        "checkins_q_clear_check": {
+          "name": "checkins_q_clear_check",
+          "value": "\"checkins\".\"q_clear\" in ('да', 'частично', 'нет')"
+        },
+        "checkins_q_equipped_check": {
+          "name": "checkins_q_equipped_check",
+          "value": "\"checkins\".\"q_equipped\" in ('да', 'нет')"
+        },
+        "checkins_q_support_check": {
+          "name": "checkins_q_support_check",
+          "value": "\"checkins\".\"q_support\" in ('да', 'нет')"
+        },
+        "checkins_q_mood_check": {
+          "name": "checkins_q_mood_check",
+          "value": "\"checkins\".\"q_mood\" in ('хорошо', 'так себе', 'думаю об уходе')"
+        },
+        "checkins_details_length": {
+          "name": "checkins_details_length",
+          "value": "char_length(\"checkins\".\"details\") <= 1000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.employees": {
+      "name": "employees",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "employees_token_unique": {
+          "name": "employees_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "employees_department_check": {
+          "name": "employees_department_check",
+          "value": "\"employees\".\"department\" in ('склад', 'магазин', 'продажи', 'офис')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
