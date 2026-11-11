@@ -11,12 +11,16 @@ export function ResetButton() {
     if (!window.confirm("Ответы и действия всех посетителей этого демо будут сброшены")) return;
     setMessage(null);
     startTransition(async () => {
-      const result = await resetDemoAction();
-      setMessage(
-        result.ok
-          ? { ok: true, text: result.message ?? "Демо сброшено." }
-          : { ok: false, text: result.error },
-      );
+      try {
+        const result = await resetDemoAction();
+        setMessage(
+          result.ok
+            ? { ok: true, text: result.message ?? "Демо сброшено." }
+            : { ok: false, text: result.error },
+        );
+      } catch {
+        setMessage({ ok: false, text: "Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз." });
+      }
     });
   }
 

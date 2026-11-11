@@ -10,8 +10,12 @@ export function ConfirmButton({ token, actionId }: { token: string; actionId: nu
   function confirm() {
     setError(null);
     startTransition(async () => {
-      const result = await confirmAction({ token, actionId });
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await confirmAction({ token, actionId });
+        if (!result.ok) setError(result.error);
+      } catch {
+        setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз.");
+      }
     });
   }
 

@@ -152,10 +152,12 @@ export async function confirmAction(input: { token: string; actionId: number }):
       .where(and(eq(actions.id, Number(input.actionId)), eq(employees.token, String(input.token))));
     if (!rows.length) return GONE;
     // Повторное подтверждение не меняет исходное время.
-    await db
+    const updated = await db
       .update(actions)
       .set({ confirmedAt: sql`coalesce(${actions.confirmedAt}, now())` })
-      .where(eq(actions.id, rows[0].id));
+      .where(eq(actions.id, rows[0].id))
+      .returning({ id: actions.id });
+    if (!updated.length) return GONE;
     refresh();
     return { ok: true };
   });

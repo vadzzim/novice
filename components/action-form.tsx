@@ -41,19 +41,24 @@ export function ActionForm({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveAction({
-        employeeId,
-        checkinId,
-        actionId: existing?.id,
-        actionText,
-        assignee,
-        dueDate,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        setGone(result.code === "gone");
-      } else if (existing) {
-        setOpen(false);
+      try {
+        const result = await saveAction({
+          employeeId,
+          checkinId,
+          actionId: existing?.id,
+          actionText,
+          assignee,
+          dueDate,
+        });
+        if (!result.ok) {
+          setError(result.error);
+          setGone(result.code === "gone");
+        } else if (existing) {
+          setOpen(false);
+        }
+      } catch {
+        setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз.");
+        setGone(false);
       }
     });
   }

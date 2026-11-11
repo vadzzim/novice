@@ -32,15 +32,20 @@ export function SurveyForm({ token, day }: { token: string; day: number }) {
     if (!complete || pending) return;
     setError(null);
     startTransition(async () => {
-      const result = await submitCheckin({
-        token,
-        day,
-        ...answers,
-        details: negative ? details : "",
-      });
-      if (!result.ok) {
-        setError(result.error);
-        setStale(result.code === "stale" || result.code === "gone");
+      try {
+        const result = await submitCheckin({
+          token,
+          day,
+          ...answers,
+          details: negative ? details : "",
+        });
+        if (!result.ok) {
+          setError(result.error);
+          setStale(result.code === "stale" || result.code === "gone");
+        }
+      } catch {
+        setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз.");
+        setStale(false);
       }
     });
   }

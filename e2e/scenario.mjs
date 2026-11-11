@@ -14,7 +14,6 @@ function check(cond, msg) {
 }
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
-const hr = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
 const mobile = () =>
   browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -55,108 +54,152 @@ async function answer(page, details) {
   await page.getByPlaceholder(/Например/).fill(details);
 }
 
-const hrPage = await hr.newPage();
-await reset(hrPage);
-const before = await demoIds(hrPage);
-log("ссылка новичка", before.link, "id", before.id);
-check(/\/s\/[A-Za-z0-9_-]{20,}$/.test(before.link), "ссылка содержит случайный токен");
-check((await (await demoCard(hrPage)).innerText()).includes("Ждём ответа"), "до ответа — «Ждём ответа»");
+async function offlineAttempt(page, button, error) {
+  await page.context().setOffline(true);
+  try {
+    await button.click();
+    await error.getByText(/Проверьте соединение и попробуйте ещё раз/).waitFor();
+    await button.waitFor({ state: "visible" });
+    check(await button.isEnabled(), "после сетевого сбоя можно повторить запрос");
+  } finally {
+    await page.context().setOffline(false);
+  }
+}
 
-// 2. Ответ новичка с телефона
-const phone = await mobile();
-const p = await phone.newPage();
-await go(p, before.link);
-const h1 = await p.locator("h1").innerText();
-check(h1.includes("Опрос за день 7 · сейчас день 7 · склад"), "заголовок опроса: " + h1);
-const t0 = Date.now();
-await answer(p, "Нет доступа к терминалу на складе");
-await p.getByRole("button", { name: "Отправить" }).click();
-await p.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 });
-log("ответ сохранён за", Date.now() - t0, "мс (включая ввод автоматом)");
-const scrollW = await p.evaluate(() => document.documentElement.scrollWidth);
-check(scrollW <= 390, "нет горизонтальной прокрутки на 390px (" + scrollW + ")");
+try {
+  const hr = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const hrPage = await hr.newPage();
+  await reset(hrPage);
+  hrPage.once("dialog", (d) => d.accept());
+  await offlineAttempt(hrPage, hrPage.getByRole("button", { name: "Сбросить демо" }), hrPage.getByRole("status"));
+  const before = await demoIds(hrPage);
+  log("ссылка новичка", before.link, "id", before.id);
+  check(/\/s\/[A-Za-z0-9_-]{20,}$/.test(before.link), "ссылка содержит случайный токен");
+  check((await (await demoCard(hrPage)).innerText()).includes("Ждём ответа"), "до ответа — «Ждём ответа»");
 
-// 3. Доска
-let card = await demoCard(hrPage);
-let text = await card.innerText();
-check(text.includes("Нужна помощь"), "после ответа — «Нужна помощь»");
-check(text.includes("Нет доступа к терминалу на складе"), "на доске виден текст препятствия");
+  // 2. Ответ новичка с телефона
+  const phone = await mobile();
+  const p = await phone.newPage();
+  await go(p, before.link);
+  const h1 = await p.locator("h1").innerText();
+  check(h1.includes("Опрос за день 7 · сейчас день 7 · склад"), "заголовок опроса: " + h1);
+  const t0 = Date.now();
+  await answer(p, "Нет доступа к терминалу на складе");
+  await offlineAttempt(p, p.getByRole("button", { name: "Отправить" }), p.getByRole("alert"));
+  check(await p.getByPlaceholder(/Например/).inputValue() === "Нет доступа к терминалу на складе", "при сетевом сбое текст ответа сохранён");
+  check(await p.locator('button[aria-pressed="true"]').count() === 4, "при сетевом сбое все ответы сохранены");
+  await p.getByRole("button", { name: "Отправить" }).click();
+  await p.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 });
+  log("ответ сохранён за", Date.now() - t0, "мс (включая ввод автоматом)");
+  const scrollW = await p.evaluate(() => document.documentElement.scrollWidth);
+  check(scrollW <= 390, "нет горизонтальной прокрутки на 390px (" + scrollW + ")");
 
-// 4. Назначение
-await go(hrPage, BASE + "/hr/" + before.id);
-const form = hrPage.locator("form").filter({ hasText: "Назначить действие" });
-await form.locator("textarea").fill("Выдать доступ к WMS");
-await form.getByPlaceholder("Например: Алексей").fill("Алексей");
-const due = await form.locator('input[type="date"]').inputValue();
-await form.getByRole("button", { name: "Назначить" }).click();
-await hrPage.getByRole("button", { name: "Скопировать задачу для Битрикс24" }).waitFor({ timeout: 20000 });
-await hrPage.getByRole("button", { name: "Скопировать задачу для Битрикс24" }).click();
-const bitrix = await hrPage.evaluate(() => navigator.clipboard.readText());
-console.log("---- Битрикс24 ----\n" + bitrix + "\n-------------------");
-const [y, m, d] = due.split("-");
-check(
-  bitrix.includes("Выдать доступ к WMS") &&
-    bitrix.includes("Ответственный: Алексей") &&
-    bitrix.includes(`Срок: ${d}.${m}.${y}`) &&
-    bitrix.includes("Нет доступа к терминалу"),
-  "текст Битрикс24 содержит действие, ответственного, срок и препятствие",
-);
-check(!bitrix.includes("/s/") && !bitrix.includes(before.link.split("/s/")[1]), "в тексте нет личной ссылки");
-card = await demoCard(hrPage);
-check((await card.innerText()).includes("В работе"), "после назначения — «В работе»");
+  // 3. Доска
+  let card = await demoCard(hrPage);
+  let text = await card.innerText();
+  check(text.includes("Нужна помощь"), "после ответа — «Нужна помощь»");
+  check(text.includes("Нет доступа к терминалу на складе"), "на доске виден текст препятствия");
 
-// 5. Подтверждение из другого браузерного профиля
-const phone2 = await mobile();
-const p2 = await phone2.newPage();
-await go(p2, before.link);
-check((await p2.locator("body").innerText()).includes("Выдать доступ к WMS"), "новичок видит назначенное действие");
-await p2.getByRole("button", { name: "Все затруднения из этого ответа устранены" }).click();
-await p2.getByText("Вы подтвердили, что затруднения устранены").waitFor({ timeout: 20000 });
+  // 4. Назначение
+  await go(hrPage, BASE + "/hr/" + before.id);
+  const form = hrPage.locator("form").filter({ hasText: "Назначить действие" });
+  await form.locator("textarea").fill("Выдать доступ к WMS");
+  await form.getByPlaceholder("Например: Алексей").fill("Алексей");
+  const due = await form.locator('input[type="date"]').inputValue();
+  await offlineAttempt(hrPage, form.getByRole("button", { name: "Назначить" }), form.getByRole("alert"));
+  check(
+    await form.locator("textarea").inputValue() === "Выдать доступ к WMS" &&
+      await form.getByPlaceholder("Например: Алексей").inputValue() === "Алексей" &&
+      await form.locator('input[type="date"]').inputValue() === due,
+    "при сетевом сбое поля действия сохранены",
+  );
+  await form.getByRole("button", { name: "Назначить" }).click();
+  await hrPage.getByRole("button", { name: "Скопировать задачу для Битрикс24" }).waitFor({ timeout: 20000 });
+  await hrPage.getByRole("button", { name: "Скопировать задачу для Битрикс24" }).click();
+  const bitrix = await hrPage.evaluate(() => navigator.clipboard.readText());
+  console.log("---- Битрикс24 ----\n" + bitrix + "\n-------------------");
+  const [y, m, d] = due.split("-");
+  check(
+    bitrix.includes("Выдать доступ к WMS") &&
+      bitrix.includes("Ответственный: Алексей") &&
+      bitrix.includes(`Срок: ${d}.${m}.${y}`) &&
+      bitrix.includes("Нет доступа к терминалу"),
+    "текст Битрикс24 содержит действие, ответственного, срок и препятствие",
+  );
+  check(!bitrix.includes("/s/") && !bitrix.includes(before.link.split("/s/")[1]), "в тексте нет личной ссылки");
+  card = await demoCard(hrPage);
+  check((await card.innerText()).includes("В работе"), "после назначения — «В работе»");
 
-// 6. Доска после подтверждения
-card = await demoCard(hrPage);
-check((await card.innerText()).includes("В порядке"), "после подтверждения — «В порядке»");
-await go(hrPage, BASE + "/hr/" + before.id);
-const detail = await hrPage.locator("main").innerText();
-check(detail.includes("Проблема (закрыта)") && detail.includes("Нет доступа к терминалу"), "история и исходный ответ сохранены");
-check(detail.includes("Новичок подтвердил решение"), "в карточке видно подтверждение");
+  // 5. Подтверждение из другого браузерного профиля
+  const phone2 = await mobile();
+  const p2 = await phone2.newPage();
+  await go(p2, before.link);
+  check((await p2.locator("body").innerText()).includes("Выдать доступ к WMS"), "новичок видит назначенное действие");
+  await offlineAttempt(p2, p2.getByRole("button", { name: "Все затруднения из этого ответа устранены" }), p2.getByRole("alert"));
+  await p2.getByRole("button", { name: "Все затруднения из этого ответа устранены" }).click();
+  await p2.getByText("Вы подтвердили, что затруднения устранены").waitFor({ timeout: 20000 });
 
-// Обновление страницы ничего не сбрасывает
-await hrPage.reload(); await go(hrPage, hrPage.url());
-check((await hrPage.locator("main").innerText()).includes("Проблема (закрыта)"), "после обновления данные на месте");
+  // 6. Доска после подтверждения
+  card = await demoCard(hrPage);
+  check((await card.innerText()).includes("В порядке"), "после подтверждения — «В порядке»");
+  await go(hrPage, BASE + "/hr/" + before.id);
+  const detail = await hrPage.locator("main").innerText();
+  check(detail.includes("Проблема (закрыта)") && detail.includes("Нет доступа к терминалу"), "история и исходный ответ сохранены");
+  check(detail.includes("Новичок подтвердил решение"), "в карточке видно подтверждение");
 
-// 7. Сброс сохраняет id и token
-await reset(hrPage);
-const after = await demoIds(hrPage);
-check(after.id === before.id && after.link === before.link, "после сброса id и token те же");
-await go(p, before.link);
-check((await p.getByRole("button", { name: "Отправить" }).count()) === 1 || (await p.getByRole("button", { name: "Ответьте на все вопросы" }).count()) === 1, "после сброса опрос дня 7 снова пуст");
+  // Обновление страницы ничего не сбрасывает
+  await hrPage.reload(); await go(hrPage, hrPage.url());
+  check((await hrPage.locator("main").innerText()).includes("Проблема (закрыта)"), "после обновления данные на месте");
 
-// 8. Одновременная отправка из двух вкладок
-const tabA = await phone.newPage();
-const tabB = await phone.newPage();
-await Promise.all([go(tabA, before.link), go(tabB, before.link)]);
-await answer(tabA, "вкладка A");
-await answer(tabB, "вкладка B");
-await Promise.all([
-  tabA.getByRole("button", { name: "Отправить" }).click(),
-  tabB.getByRole("button", { name: "Отправить" }).click(),
-]);
-await Promise.all([
-  tabA.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
-  tabB.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
-]);
-const errs = (await tabA.locator("main [role=alert]").count()) + (await tabB.locator("main [role=alert]").count());
-check(errs === 0, "две вкладки — без ошибок для пользователя");
-await go(tabA, tabA.url());
-const cards = await tabA.getByText("Ваш ответ за день 7").count();
-check(cards === 1, "сохранена одна запись за день 7");
+  // 7. Сброс сохраняет id и token
+  await reset(hrPage);
+  const after = await demoIds(hrPage);
+  check(after.id === before.id && after.link === before.link, "после сброса id и token те же");
+  await go(p, before.link);
+  check((await p.getByRole("button", { name: "Отправить" }).count()) === 1 || (await p.getByRole("button", { name: "Ответьте на все вопросы" }).count()) === 1, "после сброса опрос дня 7 снова пуст");
 
-// 9. Неверный токен
-await go(p, BASE + "/s/neverniy-token");
-check((await p.locator("h1").innerText()).includes("Ссылка не найдена"), "неверный токен — понятная страница");
+  // 8. Одновременная отправка из двух вкладок
+  const tabA = await phone.newPage();
+  const tabB = await phone.newPage();
+  await Promise.all([go(tabA, before.link), go(tabB, before.link)]);
+  await answer(tabA, "вкладка A");
+  await answer(tabB, "вкладка B");
+  await Promise.all([
+    tabA.getByRole("button", { name: "Отправить" }).click(),
+    tabB.getByRole("button", { name: "Отправить" }).click(),
+  ]);
+  await Promise.all([
+    tabA.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
+    tabB.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
+  ]);
+  const errs = (await tabA.locator("main [role=alert]").count()) + (await tabB.locator("main [role=alert]").count());
+  check(errs === 0, "две вкладки — без ошибок для пользователя");
+  await go(tabA, tabA.url());
+  const cards = await tabA.getByText("Ваш ответ за день 7").count();
+  check(cards === 1, "сохранена одна запись за день 7");
 
-// Вернуть демо в исходное состояние
-await reset(hrPage);
-await browser.close();
-console.log("\nВСЕ ПРОВЕРКИ ПРОШЛИ:", BASE);
+  // 9. Неверный токен
+  await go(p, BASE + "/s/neverniy-token");
+  check((await p.locator("h1").innerText()).includes("Ссылка не найдена"), "неверный токен — понятная страница");
+
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+} finally {
+  try {
+    // Новый контекст не зависит от состояния страниц и сети упавшего сценария.
+    const cleanup = await browser.newContext();
+    await reset(await cleanup.newPage());
+  } catch (error) {
+    console.error("Не удалось вернуть демо в исходное состояние:", error);
+    process.exitCode = 1;
+  } finally {
+    try {
+      await browser.close();
+    } catch (error) {
+      console.error("Не удалось закрыть браузер:", error);
+      process.exitCode = 1;
+    }
+  }
+}
+if (!process.exitCode) console.log("\nВСЕ ПРОВЕРКИ ПРОШЛИ:", BASE);
