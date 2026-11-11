@@ -71,11 +71,10 @@ export async function submitCheckin(input: {
       .onConflictDoNothing({ target: [checkins.employeeId, checkins.day] })
       .returning({ id: checkins.id });
     if (!inserted.length) {
-      // Ответ уже сохранили (например, в другой вкладке) — этот вариант не записан.
+      // Ответ уже сохранили (например, в другой вкладке): это не ошибка, но этот вариант не записан.
       return {
-        ok: false,
-        code: "stale",
-        error: "Ответ на этот опрос уже был сохранён раньше, этот вариант не записан. Обновите страницу.",
+        ok: true,
+        message: "Ответ на этот опрос уже был сохранён раньше (например, в другой вкладке). Этот вариант не записан.",
       };
     }
     refresh();

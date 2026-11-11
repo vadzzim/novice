@@ -16,6 +16,7 @@ export function SurveyForm({ token, day }: { token: string; day: number }) {
   const [details, setDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const complete = QUESTION_KEYS.every((k) => answers[k]);
@@ -42,12 +43,25 @@ export function SurveyForm({ token, day }: { token: string; day: number }) {
         if (!result.ok) {
           setError(result.error);
           setStale(result.code === "stale" || result.code === "gone");
+        } else if (result.message) {
+          setNotice(result.message);
         }
       } catch {
         setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз.");
         setStale(false);
       }
     });
+  }
+
+  if (notice) {
+    return (
+      <div role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {notice}
+        <button type="button" onClick={() => window.location.reload()} className="ml-2 underline">
+          Показать сохранённый ответ
+        </button>
+      </div>
+    );
   }
 
   return (

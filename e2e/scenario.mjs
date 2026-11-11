@@ -168,10 +168,12 @@ try {
     tabA.getByRole("button", { name: "Отправить" }).click(),
     tabB.getByRole("button", { name: "Отправить" }).click(),
   ]);
-  await Promise.all([
-    tabA.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
-    tabB.getByText("Ответ за день 7 сохранён").waitFor({ timeout: 20000 }),
-  ]);
+  // Одна вкладка видит сохранённый ответ, другая — пометку, что её вариант не записан.
+  const settled = (tab) =>
+    tab.getByText("Ответ за день 7 сохранён").or(tab.getByText("Этот вариант не записан")).waitFor({ timeout: 20000 });
+  await Promise.all([settled(tabA), settled(tabB)]);
+  const notices = (await tabA.getByText("Этот вариант не записан").count()) + (await tabB.getByText("Этот вариант не записан").count());
+  check(notices === 1, "ровно одна вкладка получает пометку о незаписанном варианте");
   const errs = (await tabA.locator("main [role=alert]").count()) + (await tabB.locator("main [role=alert]").count());
   check(errs === 0, "две вкладки — без ошибок для пользователя");
   await go(tabA, tabA.url());
