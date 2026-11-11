@@ -79,6 +79,12 @@ async function main() {
     .where(eq(checkins.employeeId, pavlova.id));
   r = await a.saveAction({ employeeId: pavlova.id, checkinId: pavlovaAction.checkinId, actionId: pavlovaAction.id, actionText: "новое", assignee: "z", dueDate: today });
   check(!r.ok, "подтверждённое действие изменить нельзя: " + (!r.ok && r.error));
+  r = await a.saveAction({ ...n, actionId: morozovaAction.id });
+  const [morozovaAfter] = await db.select().from(actions).where(eq(actions.id, morozovaAction.id));
+  check(
+    !r.ok && r.code === "gone" && morozovaAfter.actionText !== n.actionText,
+    "действие чужого чек-ина не меняется и не выдаётся за подтверждённое",
+  );
 
   // Сброс при выключенном флаге
   const saved = process.env.DEMO_RESET_ENABLED;

@@ -22,10 +22,10 @@ export default function Home() {
         <ol className="list-decimal grid gap-1 pl-5">
           <li>
             Откройте <Link href="/hr" className="text-blue-700 hover:underline">доску HR</Link>.
-            При необходимости нажмите «Сбросить демо».
+            Сначала нажмите «Сбросить демо», чтобы начать сценарий с исходных данных.
           </li>
           <li>
-            Откройте опрос новичка {DEMO_EMPLOYEE_NAME} (сейчас день 7) — лучше с телефона:{" "}
+            Откройте опрос новичка {DEMO_EMPLOYEE_NAME} — лучше с телефона:{" "}
             <Suspense fallback={<span className="text-zinc-400">ссылка загружается…</span>}>
               <DemoLink />
             </Suspense>

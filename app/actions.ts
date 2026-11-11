@@ -70,10 +70,16 @@ export async function submitCheckin(input: {
       .values({ employeeId: employee.id, day: state.point, ...v.answers, details: v.details })
       .onConflictDoNothing({ target: [checkins.employeeId, checkins.day] })
       .returning({ id: checkins.id });
+    if (!inserted.length) {
+      // Ответ уже сохранили (например, в другой вкладке) — этот вариант не записан.
+      return {
+        ok: false,
+        code: "stale",
+        error: "Ответ на этот опрос уже был сохранён раньше, этот вариант не записан. Обновите страницу.",
+      };
+    }
     refresh();
-    return inserted.length
-      ? { ok: true }
-      : { ok: true, message: "Ответ на этот опрос уже был сохранён раньше." };
+    return { ok: true };
   });
 }
 
@@ -120,7 +126,7 @@ export async function saveAction(input: {
         .returning({ id: actions.id });
       if (!updated.length) {
         const [existing] = await db.select().from(actions).where(eq(actions.id, Number(input.actionId)));
-        if (!existing) return GONE;
+        if (!existing || existing.checkinId !== checkin.id) return GONE;
         return { ok: false, error: "Новичок уже подтвердил решение — действие изменить нельзя." };
       }
       refresh();
