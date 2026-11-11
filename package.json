@@ -10,7 +10,10 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "check:batch": "tsx scripts/check-batch.ts",
+    "check:server": "tsx scripts/check-server.ts",
+    "e2e": "node e2e/scenario.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
@@ -28,6 +31,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "playwright-core": "^1.65.0",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5",

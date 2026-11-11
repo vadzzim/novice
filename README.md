@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Пульс новичка
 
-## Getting Started
+Открытое демо на вымышленных данных. Новичок в день 1 и день 7 отвечает с телефона на четыре вопроса по личной ссылке.
+Если что-то мешает, HR видит это на доске, назначает действие с ответственным и сроком,
+а новичок подтверждает, что затруднения устранены. Только после этого проблема закрывается.
 
-First, run the development server:
+Рабочая версия: https://novice-blond.vercel.app
+
+- `/hr` — доска HR со статусами «Нужна помощь», «В работе», «Нет ответа», «Ждём ответа», «В порядке», «Ещё не вышел».
+- `/hr/[id]` — карточка новичка: ответы по дням, назначение и изменение действия, текст задачи для Битрикс24.
+- `/s/[token]` — мобильный опрос новичка и подтверждение решения.
+
+Авторизации нет: переключатель экранов не защищает HR-экраны. Для реальных людей это использовать нельзя.
+
+## Стек
+
+Next.js 16 (App Router, Cache Components), TypeScript, Tailwind, Postgres (Neon) + Drizzle (`neon-http`), Vercel.
+Часовой пояс демо — Europe/Moscow. Это допущение, а не известный факт о компании.
+
+## Запуск
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local   # вписать DATABASE_URL
+pnpm db:migrate              # применить схему из drizzle/
+pnpm db:seed                 # явный сид: 12 вымышленных новичков, даты от сегодняшнего дня
+pnpm dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Переменные окружения
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Переменная | Назначение |
+|---|---|
+| `DATABASE_URL` | Строка подключения Neon (pooled, `sslmode=require`) |
+| `DEMO_RESET_ENABLED` | `true` разрешает кнопку «Сбросить демо» и `pnpm db:seed`. Без этого значения сервер отклоняет сброс, а кнопка скрыта. Включать только на отдельной демо-базе с вымышленными данными. Это предохранитель, а не авторизация |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Сброс демо и повторное прохождение
 
-## Learn More
+Данные общие для всех посетителей. Кнопка «Сбросить демо» на доске (или `pnpm db:seed`) одним пакетом `db.batch()`:
+удаляет действия и ответы, сдвигает даты выхода относительно сегодняшнего дня и восстанавливает исходные ответы.
+id и токены сотрудников сохраняются, поэтому старые ссылки продолжают работать.
+При ошибке Neon откатывает весь пакет, проверка: `pnpm check:batch`.
+Обычное открытие страницы или запуск сервера сид не выполняют.
 
-To learn more about Next.js, take a look at the following resources:
+Сценарий: на главной странице есть ссылка на опрос новичка «Дмитрий Козлов». У него сейчас день 7: ответ за день 1 благополучный, опрос дня 7 пуст.
+1. Откройте опрос, отметьте «нет» в вопросе про всё необходимое и уточните: «Нет доступа к терминалу на складе».
+2. На доске он перейдёт в «Нужна помощь». В карточке назначьте действие «Выдать доступ к WMS», ответственный Алексей, срок завтра. Статус станет «В работе».
+3. Скопируйте текст для Битрикс24. Задачу создаёте вручную, системы не синхронизируются.
+4. В опросе подтвердите «Все затруднения из этого ответа устранены». Статус станет «В порядке», исходный ответ останется в истории.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Проверки
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm test                          # Vitest: расчёт даты в часовом поясе, выбор опроса, статусы, текст Битрикс24
+pnpm check:batch                   # атомарность сброса на реальной базе
+pnpm check:server                  # серверные отказы: чужой токен, неверные данные, флаг сброса
+pnpm e2e https://<адрес>           # сквозной сценарий в установленном Microsoft Edge (playwright-core)
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`check:server` и `e2e` сбрасывают демо-базу до и после проверки.
